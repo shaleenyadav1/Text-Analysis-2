@@ -1,0 +1,70 @@
+library('stringr')
+library('readr')
+library('wordcloud')
+library('tm')
+library('SnowballC')
+library('RSentiment')
+library('data.table')
+library('DT')
+library('ggplot2')
+
+debate_f <- read.csv("/Users/pranavnavandar/Documents/Study Material/BAR/debate_x.csv",stringsAsFactors = F)
+debate_f$Speaker <- as.factor(debate_f$Speaker)
+debate_f <- as.data.table(debate_f)
+
+interventions <- debate_f[,.N,by=Speaker][order(-N)]
+ggplot(interventions,aes(x = Speaker,y = N, fill=Speaker))+
+geom_bar(stat = "identity") +
+ggtitle("Number of Interventions")
+
+trump <- debate_f$Text[debate_f$Speaker=="Trump"]
+corpus = Corpus(VectorSource(list(trump)))
+corpus = tm_map(corpus, removePunctuation)
+corpus = tm_map(corpus, content_transformer(tolower))
+corpus = tm_map(corpus, removeNumbers) 
+corpus = tm_map(corpus, stripWhitespace)
+corpus = tm_map(corpus, removeWords, stopwords('english’))
+corpus = tm_map(corpus, stemDocument)
+
+dtm_trump = DocumentTermMatrix(VCorpus(VectorSource(corpus[[1]]$content)))
+freq_trump <- colSums(as.matrix(dtm_trump))
+
+sentiments_trump = calculate_sentiment(names(freq_trump))
+sentiments_trump = cbind(sentiments_trump, as.data.frame(freq_trump))
+sent_pos_trump = sentiments_trump[sentiments_trump$sentiment == 'Positive',]
+sent_neg_trump = sentiments_trump[sentiments_trump$sentiment == 'Negative',]
+
+asd<-matrix(c(sum(sent_neg_trump$freq_trump),sum(sent_pos_trump$freq_trump)),ncol=2,byrow=TRUE)
+colnames(asd)<-c("negative","positive")
+barplot(asd)
+
+clinton_f <- debate_f$Text[debate_f$Speaker=="Clinton"]
+corpus_f = Corpus(VectorSource(list(clinton_f)))
+corpus_f = tm_map(corpus_f, removePunctuation)
+corpus_f = tm_map(corpus_f, content_transformer(tolower))
+corpus_f = tm_map(corpus_f, removeNumbers) 
+corpus_f = tm_map(corpus_f, stripWhitespace)
+corpus_f = tm_map(corpus_f, removeWords, stopwords('english'))
+corpus_f = tm_map(corpus_f, stemDocument)
+
+dtm_clinton_f = DocumentTermMatrix(VCorpus(VectorSource(corpus_f[[1]]$content)))
+
+row.has.na <- apply(dtm_clinton_f, 1, function(x){any(is.na(x))})
+sum(row.has.na)
+dtm_clinton_f.filtered <- dtm_clinton_f[!row.has.na,]
+
+freq_clinton_f <- colSums(as.matrix(dtm_clinton_f.filtered)) 
+
+sentiments_clinton_f = calculate_sentiment(names(freq_clinton_f))
+sentiments_clinton_f = cbind(sentiments_clinton_f, as.data.frame(freq_clinton_f))
+sent_pos_clinton_f = sentiments_clinton_f[sentiments_clinton_f$sentiment == 'Positive',]
+sent_neg_clinton_f = sentiments_clinton_f[sentiments_clinton_f$sentiment == 'Negative',]
+
+Clint_graph<- matrix(c(sum(sent_neg_clinton_f$freq_clinton_f),sum(sent_pos_clinton_f$freq_clinton_f)),ncol = 2,byrow = true)
+colnames(Clint_graph)<-c("Negative","Postive")
+barplot(Clint_graph)
+
+audience <- factor(debate_f$Text[debate_f$Speaker=="Audience"])
+qplot(audience,fill=audience)+
+  ggtitle("Audience Reactions")+
+  ylab("Interventions")+xlab("Reaction")
